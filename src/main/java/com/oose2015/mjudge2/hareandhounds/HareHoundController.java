@@ -63,7 +63,6 @@ public class HareHoundController {
         
         get(API_CONTEXT + "/:gameId/state", "application/json", (request, response) -> {
             try {
-            	System.out.println("searching for state of " + request.params(":gameId"));
             	Map<String, String> contentToReturn = service.determineGameState(request.params(":gameId"));
             	response.status(200);
             	return contentToReturn;
