@@ -42,11 +42,12 @@ public class Bootstrap {
 
         //Create the model instance and then configure and start the web service
        try {
-            TodoService model = new TodoService(dataSource);
-            new TodoController(model);
+    	   System.out.println("here");
+            HareHoundService model = new HareHoundService(dataSource);
+            new HareHoundController(model);
         	System.out.println("Hello World");
-        } catch (TodoService.TodoServiceException ex) {
-            logger.error("Failed to create a TodoService instance. Aborting");
+        } catch (Exception ex) {
+            logger.error("Failed to create a Hare Hound Service instance. Aborting");
         }
     }
 
@@ -56,11 +57,11 @@ public class Bootstrap {
      * @return javax.sql.DataSource corresponding to the todo database
      */
     private static DataSource configureDataSource() {
-        Path todoPath = Paths.get(".", "todo.db");
+        Path todoPath = Paths.get(".", ".db");
         if ( !(Files.exists(todoPath) )) {
             try { Files.createFile(todoPath); }
             catch (java.io.IOException ex) {
-                logger.error("Failed to create toto.db file in current directory. Aborting");
+                logger.error("Failed to create todo.db file in current directory. Aborting");
             }
         }
 
