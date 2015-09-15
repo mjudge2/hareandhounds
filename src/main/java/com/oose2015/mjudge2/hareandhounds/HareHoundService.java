@@ -283,6 +283,7 @@ public class HareHoundService {
     		contentToReturn.put("reason", "INVALID_GAME_ID");
     		return contentToReturn;
     	}
+    	
     	try {
     		player = getPlayer(paramPlayer.getPlayerId(), game.getGameId());
     		//System.out.println("piece type: " + player.getPieceType());
@@ -292,10 +293,6 @@ public class HareHoundService {
     		player.setToY(paramPlayer.getToY());
     	} catch (HareHoundServiceException ex){
     		contentToReturn.put("reason", "INVALID_PLAYER_ID");
-    		return contentToReturn;
-    	}
-    	if (!isPlayersTurn(game, player.getPieceType())){
-    		contentToReturn.put("reason", "INCORRECT_TURN");
     		return contentToReturn;
     	}
 		try {
@@ -310,7 +307,11 @@ public class HareHoundService {
 			contentToReturn.put("reason", "ILLEGAL_MOVE");
 			return contentToReturn;
 		}
-    	if (!isValidMove(player.getFromX(), player.getToX(), player.getFromY(), player.getToY(), player.getPieceType())){
+    	if (!isPlayersTurn(game, player.getPieceType())){
+    		contentToReturn.put("reason", "INCORRECT_TURN");
+    		return contentToReturn;
+    	}
+    	if (!isValidMove(player.getFromX(), player.getToX(), player.getFromY(), player.getToY(), player.getPieceType(), boardConfiguration)){
     		//System.out.println("illegal move here 3");
     		contentToReturn.put("reason", "ILLEGAL_MOVE");
     		return contentToReturn;
@@ -358,9 +359,7 @@ public class HareHoundService {
        				.addParameter("gameId", game.getGameId())
        				.executeUpdate()
        				.getKey();
-       		//System.out.println("most recent config" + configurationId.toString());
        		game.setMostRecentConfigurationId((Integer)configurationId);
-       		//System.out.println("most recent config game" + game.getMostRecentConfigurationId());
        		String updateGameStatusSql = "UPDATE game SET status = :status, most_recent_config = :mostRecentConfigurationId WHERE game_id = :gameId";
     		if (game.getStatus() == 2){
             	game.setStatus(1);
@@ -376,7 +375,6 @@ public class HareHoundService {
             logger.error(String.format("HareHoundService.determineGameState: Failed to query database for id: %s", gameId), ex);
             throw new HareHoundServiceException(String.format("HareHoundService.determineGameState: Failed to query database for id: %s", gameId), ex);
         }
-    	//System.out.println("id:" + paramPlayer.getPlayerId());
     	contentToReturn.put("playerId", ((Integer)paramPlayer.getPlayerId()).toString());
     	return contentToReturn;
     }
@@ -460,16 +458,27 @@ public class HareHoundService {
     	return isTurn;
     }
 
-    private boolean isValidMove(int fromX, int toX, int fromY, int toY, String pieceType){
+    private boolean isValidMove(int fromX, int toX, int fromY, int toY, String pieceType, BoardConfiguration configuration){
     	if (pieceType.equals("HOUND")){
     		if (fromX > toX){
+    			return false;
+    		}
+    		if ((configuration.getXLocationHound1() != fromX) || (configuration.getYLocationHound1() != fromY)){
+        		if ((configuration.getXLocationHound2() != fromX) || (configuration.getYLocationHound2() != fromY)){
+            		if ((configuration.getXLocationHound3() != fromX) || (configuration.getYLocationHound3() != fromY)){
+            			return false;
+            		}
+        		}
+    		}
+    	} else {
+    		if ((configuration.getXLocationHare() != fromX) || (configuration.getYLocationHare() != fromY)){
     			return false;
     		}
     	}
     	int xShift = Math.abs(toX - fromX);
     	int yShift = Math.abs(toY - fromY);
     	int toSum = Math.abs(toX + toY);
-    	int fromSum = Math.abs(fromX + fromY) % 2;
+    	int fromSum = Math.abs(fromX + fromY);
     	if (xShift <= 1 && yShift <= 1){
     		if ((fromSum % 2 == 0) && (toSum % 2 == 0)){
     			return false;
@@ -514,33 +523,64 @@ public class HareHoundService {
     	return false;
     }
     private boolean isStalling(BoardConfiguration configuration) throws HareHoundServiceException{
-    	String sqlGetBoardConfiguration = "SELECT configuration_id FROM configuration WHERE game_id = :gameId " +
-    			"AND hare_x_location =:hareXLocation AND hare_y_location =:hareYLocation AND hound_1_x_location =:hound1XLocation AND hound_1_y_location =:hound1YLocation " +
-    			"AND hound_2_x_location =:hound2XLocation AND hound_2_y_location =:hound2YLocation AND hound_3_x_location =:hound3XLocation " +
-    			"AND hound_3_y_location =:hound3YLocation";
+    	String sqlGetBoardConfiguration = "SELECT * FROM configuration WHERE game_id = :gameId " +
+    			"AND hare_x_location =:hareXLocation AND hare_y_location =:hareYLocation";
     	System.out.println("is stalling game id" + configuration.getGameId());
     	try (Connection conn = database.open()){
     		List<BoardConfiguration> configurations = conn.createQuery(sqlGetBoardConfiguration)
+    				.addParameter("gameId", configuration.getGameId())
        				.addParameter("hareXLocation", configuration.getXLocationHare())
        				.addParameter("hareYLocation", configuration.getYLocationHare())
-       				.addParameter("hound1XLocation", configuration.getXLocationHound1())      				
-       				.addParameter("hound1YLocation", configuration.getYLocationHound1())
-       				.addParameter("hound2XLocation", configuration.getXLocationHound2())       				
-       				.addParameter("hound2YLocation", configuration.getYLocationHound2())
-       				.addParameter("hound3XLocation", configuration.getXLocationHound3())
-       				.addParameter("hound3YLocation", configuration.getYLocationHound3())
-    				.addParameter("gameId", configuration.getGameId())
+       				.addColumnMapping("hare_x_location", "xLocationHare")
+       				.addColumnMapping("hare_y_location", "yLocationHare")
+       				.addColumnMapping("hound_1_x_location", "xLocationHound1")      				
+       				.addColumnMapping("hound_1_y_location", "yLocationHound1")
+       				.addColumnMapping("hound_2_x_location", "xLocationHound2")       				
+       				.addColumnMapping("hound_2_y_location", "yLocationHound2")
+       				.addColumnMapping("hound_3_x_location", "xLocationHound3")
+       				.addColumnMapping("hound_3_y_location", "yLocationHound3")
+       				.addColumnMapping("game_id", "gameId")
+       				.addColumnMapping("frequency", "frequency")
        				.addColumnMapping("configuration_id", "id")
        				.executeAndFetch(BoardConfiguration.class);
-    		System.out.println("configurations.size() = " + configurations.size());
     		if (configurations.size() >= 3){
-    			return true;
+    			for (BoardConfiguration pastConfiguration : configurations){
+    				if(hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound1(), configuration.getYLocationHound1())){
+    					if (hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound2(), configuration.getYLocationHound2())){
+    						if (hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound3(), configuration.getYLocationHound3())){
+    							return true;
+    						}
+    					}
+    				} 
+    			}
     		}
     		return false;
     	} catch(Sql2oException ex){
     		logger.error(String.format("HareHoundService.isStalling: Failed to query database for player: %s", configuration.getId()), ex);
     		throw new HareHoundServiceException(String.format("HareHoundService.isStalling: Failed to query database of id %s", configuration.getId()), ex);
     	}
+    }
+    private boolean hasThisHoundLocationOccurred(BoardConfiguration configuration, int xLoc, int yLoc){
+    	System.out.println("in check");
+    	List<Integer> xHoundCoordinates = new ArrayList<Integer>();
+    	xHoundCoordinates.add(configuration.getXLocationHound1());
+    	xHoundCoordinates.add(configuration.getXLocationHound2());
+    	xHoundCoordinates.add(configuration.getXLocationHound3());
+    	List<Integer> yHoundCoordinates = new ArrayList<Integer>();
+    	yHoundCoordinates.add(configuration.getYLocationHound1());
+    	yHoundCoordinates.add(configuration.getYLocationHound2());
+    	yHoundCoordinates.add(configuration.getYLocationHound3());
+    	for (int i = 0; i < yHoundCoordinates.size(); i++){
+    		System.out.println(xHoundCoordinates.get(i));
+    		System.out.println(yHoundCoordinates.get(i));
+    		System.out.println(xLoc);
+    		System.out.println(yLoc);
+    		if (xHoundCoordinates.get(i) == xLoc && yHoundCoordinates.get(i) == yLoc){
+    			System.out.println("have seen this before...");
+    			return true;
+    		}
+    	}
+    	return false;
     }
     public static class HareHoundServiceException extends Exception {
 		public HareHoundServiceException(String message, Throwable cause) {
