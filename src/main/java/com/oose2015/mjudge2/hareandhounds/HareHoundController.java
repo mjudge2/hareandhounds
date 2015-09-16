@@ -19,7 +19,6 @@ public class HareHoundController {
 	private final Logger logger = LoggerFactory.getLogger(HareHoundController.class);
 	
 	public HareHoundController(HareHoundService service){
-		System.out.println("here2");
 		this.service = service;
 		createEndpoints();
 	}
@@ -29,12 +28,8 @@ public class HareHoundController {
             try {
             	Map<String, String> contentToReturn = service.createNewGame(request.body());
             	response.status(201);
-            	System.out.println(contentToReturn.get("gameId"));
-            	System.out.println(contentToReturn.get("playerId"));
-            	System.out.println(contentToReturn.get("pieceType"));
             	return contentToReturn;
             } catch (HareHoundService.HareHoundServiceException ex) {
-            	System.out.println("here3");
                 logger.error("Failed to create new game");
                 response.status(400);
                 return Collections.EMPTY_MAP;
@@ -43,15 +38,11 @@ public class HareHoundController {
    
         put(API_CONTEXT + "/:gameId", "application/json", (request, response) -> {
         	try {
-        		System.out.println("here10");
         		Map<String, String> contentToReturn = service.joinGame(request.params(":gameId"));
-        		if (contentToReturn.size() == 0){
-        			logger.error("Game already has 2 players");
-        			response.status(410);
-        		}
-            	System.out.println(contentToReturn.get("gameId"));
-            	System.out.println(contentToReturn.get("playerId"));
-            	System.out.println(contentToReturn.get("pieceType"));
+        	 	if (contentToReturn.containsKey("reason")){
+        	 		logger.error("Game already has 2 players");
+               		response.status(410);               		
+        	 	}
         		response.status(200);
         		return contentToReturn;
         	} catch (HareHoundService.HareHoundServiceException ex){

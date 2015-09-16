@@ -1,5 +1,8 @@
 package com.oose2015.mjudge2.hareandhounds;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class BoardConfiguration {
 	private int xLocationHound1;
 	private int yLocationHound1;
@@ -76,6 +79,80 @@ public class BoardConfiguration {
 	public int getFrequency(){
 		return this.frequency;
 	}
-
-
+	public void createDefaultBoardConfiguration(){
+		this.setXLocationHare(4);
+		this.setYLocationHare(1);
+		this.setXLocationHound1(0);
+		this.setYLocationHound1(1);
+		this.setXLocationHound2(1);
+		this.setYLocationHound2(0);
+		this.setXLocationHound3(1);
+		this.setYLocationHound3(2);
+	}
+    public boolean isLocationOccupied(int toX, int toY){
+    	if ((toX == this.getXLocationHound1()) && (toY == this.getYLocationHound1())){
+    		return true;
+    	}
+   		if ((toX == this.getXLocationHound2()) && (toY == this.getYLocationHound2())){
+    		return true;
+   		}
+    	if ((toX == this.getXLocationHound3()) && (toY == this.getYLocationHound3())){
+    		return true;
+    	}
+    	if ((toX == this.getXLocationHare()) && (toY == this.getYLocationHare())){
+    		return true;
+    	}
+    	return false;
+    }
+    public void movePiece(Move move){
+    	if (move.getPieceType().equals("HARE")){
+    		this.setXLocationHare(move.getToX());
+    		this.setYLocationHare(move.getToY());
+    	} else {
+    		if (this.getXLocationHound1() == move.getFromX() && this.getYLocationHound1() == move.getFromY()){
+    			this.setXLocationHound1(move.getToX());
+    			this.setYLocationHound1(move.getToY());
+    		} else if (this.getXLocationHound2() == move.getFromX() && this.getYLocationHound2() == move.getFromY()){
+    			this.setXLocationHound2(move.getToX());
+    			this.setYLocationHound2(move.getToY());
+    		} else if (this.getXLocationHound3() == move.getFromX() && this.getYLocationHound3() == move.getFromY()){
+    			this.setXLocationHound3(move.getToX());
+    			this.setYLocationHound3(move.getToY());
+    		}
+    	}
+    }
+    public boolean noHoundToLeftOfHare(){
+    	List<Integer> houndXCoordinates = new ArrayList<Integer>();
+    	houndXCoordinates.add((Integer)this.getXLocationHound1());
+    	houndXCoordinates.add((Integer)this.getXLocationHound2());
+    	houndXCoordinates.add((Integer)this.getXLocationHound3());
+    	
+    	int houndCounter = 0;
+    	for (Integer houndXCoordinate : houndXCoordinates){
+    		if (this.getXLocationHare() <= houndXCoordinate){
+    			houndCounter++;
+    		}
+    	}
+    	if (houndCounter == 3){
+    		return true;
+    	}
+    	return false;
+    }
+    public boolean isHareTrapped(){
+    	List<Integer> houndXCoordinates = new ArrayList<Integer>();
+    	houndXCoordinates.add((Integer)this.getXLocationHound1());
+    	houndXCoordinates.add((Integer)this.getXLocationHound2());
+    	houndXCoordinates.add((Integer)this.getXLocationHound3());
+    	
+    	int houndCounter = 0;
+    	for (Integer houndXCoordinate : houndXCoordinates){
+    		if (houndXCoordinate == 3){
+    			houndCounter++;
+    		}
+    	}
+    	if (houndCounter == 3){
+    		return true;
+    	}
+    	return false;
+    }
 }

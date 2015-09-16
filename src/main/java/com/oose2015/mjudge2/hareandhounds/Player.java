@@ -78,4 +78,20 @@ public class Player {
 		}
 		return yLocations;
 	}
+	public boolean isHare(){
+		if (this.pieceType.equals("HARE")){
+			return true;
+		}
+		return false;
+	}
+	public void setDefaultLocation(){
+		this.currentLocation = new ArrayList<Point>();
+    	if (this.isHare()){
+    		this.currentLocation.add(new Point(4,1));
+    	} else {
+    		this.currentLocation.add(new Point(0,1));
+    		this.currentLocation.add(new Point(1,0));
+    		this.currentLocation.add(new Point(1,2));
+    	}
+	}
 }
