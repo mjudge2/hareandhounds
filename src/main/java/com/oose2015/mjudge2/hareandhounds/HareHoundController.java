@@ -1,6 +1,11 @@
+//-------------------------------------------------------------------------------------------------------------//
+// Code based on a tutorial by Shekhar Gulati of SparkJava at
+// https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/
+// Code structure also modeled off of the TodoController written for the OOSE 2015 class. 
+// https://github.com/jhu-oose/todo/blob/master/src/main/java/com/todoapp/TodoController.java
+//-------------------------------------------------------------------------------------------------------------//
 package com.oose2015.mjudge2.hareandhounds;
 
-import static spark.Spark.delete;
 import static spark.Spark.get;
 import static spark.Spark.post;
 import static spark.Spark.put;
@@ -17,12 +22,14 @@ public class HareHoundController {
 
 	private final HareHoundService service; 
 	private final Logger logger = LoggerFactory.getLogger(HareHoundController.class);
-	
+
 	public HareHoundController(HareHoundService service){
 		this.service = service;
 		createEndpoints();
 	}
-	
+    /**
+     * Creates endpoints for the url requests. See {@link spark.Spark} package).
+     */
 	private void createEndpoints(){
         post(API_CONTEXT, "application/json", (request, response) -> {
             try {

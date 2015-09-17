@@ -1,3 +1,9 @@
+//-------------------------------------------------------------------------------------------------------------//
+// Code based on a tutorial by Shekhar Gulati of SparkJava at
+// https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/
+// Code structure very loosely based off of the TodoService created for OOSE 2015
+// https://github.com/jhu-oose/todo/blob/master/src/main/java/com/todoapp/TodoService.java
+//-------------------------------------------------------------------------------------------------------------//
 package com.oose2015.mjudge2.hareandhounds;
 import com.google.gson.Gson;
 
@@ -19,7 +25,12 @@ public class HareHoundService {
     private final Logger logger = LoggerFactory.getLogger(HareHoundService.class);
     private final String[] status = new String[]{"WAITING_FOR_SECOND_PLAYER", "TURN_HARE", "TURN_HOUND", "WIN_HARE_BY_ESCAPE", 
     		"WIN_HARE_BY_STALLING", "WIN_HOUND"};
-    
+    /**
+     * Construct the model with a pre-defined datasource and ensure that the DB schema is created. 
+     * Three tables are created within the database. One stores games, another stores players, and the last
+     * stores board configurations. 
+     * @param dataSource
+     */
     public HareHoundService(DataSource dataSource) throws HareHoundServiceException {
         database = new Sql2o(dataSource);
         try (Connection conn = database.open()) {
@@ -40,6 +51,13 @@ public class HareHoundService {
             throw new HareHoundServiceException("Failed to create schema at startup", ex);
         }
     }
+    /**
+     * Creates a new hare and hounds game. The information from the body is extracted (see the
+     * {@link com.google.gson.Gson} package), and the default location of the player is set, based on whether
+     * the piece is a hare or a hound.
+     * @param body the body of the http request
+     * @return a map that contains the gameId, playerId, and pieceType of the first player in the new game
+     */
     public Map<String, String> createNewGame(String body) throws HareHoundServiceException{
     	Map<String, String> contentToReturn = new HashMap<String, String>();
     	Player player1 = new Gson().fromJson(body, Player.class);
@@ -66,7 +84,16 @@ public class HareHoundService {
 
     	return contentToReturn;
     }
-    
+    /**
+     * Enables a player to join an existing game. The method retrieves the game, if it exists, and retrieves
+     * the existing player of the game. A board configuration is then created with the default locations
+     * for the hare and hound pieces. The game is then updated in the database so that it is connected
+     * to the default board configuration.
+     * 
+     * @throws HareHoundServiceException when the game cannot be found and/or no players could be found. 
+     * @param id the id of the game the player wants to join
+     * @return a map that contains the gameId, playerId, and pieceType of the second player in the game
+     */
     public Map<String, String> joinGame(String id) throws HareHoundServiceException{
     	Map<String, String> contentToReturn = new HashMap<String, String>();
     	Player player1 = new Player();
@@ -112,7 +139,19 @@ public class HareHoundService {
     		throw new HareHoundServiceException(String.format("HareHoundService.joinGame: Failed to query database for id: %s", gameId), ex);
     	}
     }
-    
+    /**
+     * Determines the state of the game. There a five possible states for a game: "WAITING_FOR_SECOND_PLAYER", "TURN_HARE", "TURN_HOUND", 
+     * "WIN_HARE_BY_ESCAPE", "WIN_HARE_BY_STALLING", "WIN_HOUND". These states are stored in an array and are referenced by their 
+     * indices in the array. 
+     * 
+     * The method queries the game table for the state of the game whose id matches the gameId parameter. Then, the integer
+     * value of the status stored in the game table is matched to its associated string value stored in the status array, and the 
+     * status is returned.
+     * 
+     * @throws HareHoundServiceException when the game cannot be found.
+     * @param id the id of the game whose status is requested
+     * @return a map that contains the status of the game
+     */
     public Map<String, String> determineGameState (String gameId) throws HareHoundServiceException {
     	Map<String, String> contentToReturn = new HashMap<String, String>();
     	String sqlGetGameState = "SELECT status FROM game WHERE game_id = :gameId ";
@@ -130,7 +169,16 @@ public class HareHoundService {
             throw new HareHoundServiceException(String.format("HareHoundService.determineGameState: Failed to query database for id: %s", gameId), ex);
         }
     }
-    
+    /**
+     * Determines the board state of the game. Specifically, the method locates the most recent board configuration
+     * for a specific id. To find the most recent board configuration, the game table is queried to find the id of 
+     * the most recent board configuration, and then the configuration table is queried to find the specific record. 
+     * The piece locations are then extracted from the record, and are returned in a map.
+     * 
+     * @throws HareHoundServiceException when the game or board configuration cannot be found.
+     * @param id the id of the game whose board status is requested
+     * @return a map that contains the locations of each piece on the board
+     */
     public List<Map<String, String>> determineBoardState (String gameId) throws HareHoundServiceException {    	
     	List<Map<String, String>> contentToReturn = new ArrayList<Map<String, String>>();
 
@@ -166,6 +214,19 @@ public class HareHoundService {
             throw new HareHoundServiceException(String.format("HareHoundService.determineBoardState: Failed to query database for id: %s", gameId), ex);
     	}
     }
+    /**
+     * Supports the game logic for the hare and hounds game. Queries the game table and the board configuration
+     * table to retrieve the most recent board configuration. The method checks whether the move can be made by 
+     * determining whether the location to which the player wants to move is unoccupied and valid, according to
+     * the rules of the game. Once the piece is moved, the game status is updated, and the new board configuration
+     * is mapped to the database. Lastly, winning conditions are checked, and if a player has won, the game status
+     * is updated to reflect that.
+     * 
+     * @param id the id of the game whose board status is requested
+     * @param body the body of the http request that contains the player's desired move.
+     * @return a map that contains the locations of each piece on the board
+     * @throws HareHoundServiceException when the game or board configuration cannot be found.
+     */
     public Map<String, String> playHareAndHounds(String id, String body) throws HareHoundServiceException{
     	Map<String, String> contentToReturn = new HashMap<String, String>();
         int newStatus;
@@ -210,7 +271,6 @@ public class HareHoundService {
     		return contentToReturn;
     	} else {
     		boardConfiguration.movePiece(move);
-    		
         	if (boardConfiguration.isHareTrapped()){
         		game.setStatus(5);
         	}
@@ -233,6 +293,14 @@ public class HareHoundService {
     	contentToReturn.put("playerId", ((Integer)move.getPlayerId()).toString());
     	return contentToReturn;
     }
+    /**
+     * Determines whether the player is making a move out of turn by checking its piece type
+     * and comparing it to the status of the game. 
+     * 
+     * @param game the current game
+     * @param pieceType the piece type of the current player who is making a move
+     * @return true if it is the players turn, false otherwise.
+     */
     private boolean isPlayersTurn(Game game, String pieceType){
     	int gameStatus = game.getStatus();
     	boolean isTurn = false;
@@ -243,6 +311,20 @@ public class HareHoundService {
     	}
     	return isTurn;
     }
+    /**
+     * Determines whether the hounds are stalling. Hounds are stalling if the same board configuration has
+     * been repeated three times throughout the course of the game. The check of stalling is executed by 
+     * querying the configuration table for all boards that are related to a specific game and have the same
+     * hare position. The result of the query is a list of BoardConfiguration objects with the same hare 
+     * positions. The reason the table is queried by game id and hare position, and not by hound positions,
+     * is because stalling occurs when any hound piece and the hare piece have been in the same position. 
+     * 
+     * The list of board configurations is then checked to see if there are three repeats.
+     * 
+     * @param configuration the board configuration
+     * @return true if the hounds are stalling, false otherwise
+     * @throws HareHoundServiceException if the board configuration cannot be found
+     */
     private boolean isStalling(BoardConfiguration configuration) throws HareHoundServiceException{
     	String sqlGetBoardConfiguration = "SELECT * FROM configuration WHERE game_id = :gameId " +
     			"AND hare_x_location =:hareXLocation AND hare_y_location =:hareYLocation";
@@ -263,18 +345,22 @@ public class HareHoundService {
        				.addColumnMapping("frequency", "frequency")
        				.addColumnMapping("configuration_id", "id")
        				.executeAndFetch(BoardConfiguration.class);
-    		if (configurations.size() > 3){
+    		int houndRepeats = 0;
+    		if (configurations.size() >= 3){
     			for (BoardConfiguration pastConfiguration : configurations){
-    				if(hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound1(),
+    				if(pastConfiguration.hasThisHoundLocationOccurred(configuration.getXLocationHound1(), 
     						configuration.getYLocationHound1())){
-    					if (hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound2(),
+    					if (pastConfiguration.hasThisHoundLocationOccurred(configuration.getXLocationHound2(), 
     							configuration.getYLocationHound2())){
-    						if (hasThisHoundLocationOccurred(pastConfiguration, configuration.getXLocationHound3(),
+    						if (pastConfiguration.hasThisHoundLocationOccurred(configuration.getXLocationHound3(), 
     								configuration.getYLocationHound3())){
-    							return true;
+    							houndRepeats++;
     						}
     					}
-    				} 
+    				}
+    			}
+    			if (houndRepeats >= 3){
+    				return true;
     			}
     		}
     		return false;
@@ -283,22 +369,12 @@ public class HareHoundService {
     		throw new HareHoundServiceException(String.format("HareHoundService.isStalling: Failed to query database of id %s", configuration.getId()), ex);
     	}
     }
-    private boolean hasThisHoundLocationOccurred(BoardConfiguration configuration, int xLoc, int yLoc){
-    	List<Integer> xHoundCoordinates = new ArrayList<Integer>();
-    	xHoundCoordinates.add(configuration.getXLocationHound1());
-    	xHoundCoordinates.add(configuration.getXLocationHound2());
-    	xHoundCoordinates.add(configuration.getXLocationHound3());
-    	List<Integer> yHoundCoordinates = new ArrayList<Integer>();
-    	yHoundCoordinates.add(configuration.getYLocationHound1());
-    	yHoundCoordinates.add(configuration.getYLocationHound2());
-    	yHoundCoordinates.add(configuration.getYLocationHound3());
-    	for (int i = 0; i < yHoundCoordinates.size(); i++){
-    		if (xHoundCoordinates.get(i) == xLoc && yHoundCoordinates.get(i) == yLoc){
-    			return true;
-    		}
-    	}
-    	return false;
-    }
+    /**
+     * Updates the game in the database.
+     * 
+     * @param game the game to be updated
+     * @throws HareHoundServiceException if the game cannot be found in the database
+     */
     private void updateGame(Game game) throws HareHoundServiceException{
     	String updateGameStatusSql = "UPDATE game SET status = :status, most_recent_config = :configId WHERE game_id = :gameId";
     	try (Connection conn = database.open()){
@@ -313,6 +389,12 @@ public class HareHoundService {
     		throw new HareHoundServiceException(String.format("HareHoundService.getBoardConfiguration: Failed to query database "), ex);
     	}
     }
+    /**
+     * Creates a board configuration object 
+     * 
+     * @param game the game to be updated
+     * @throws HareHoundServiceException if the game cannot be found in the database
+     */
     private BoardConfiguration createBoardConfiguration(int gameId, Player player){
     	BoardConfiguration configuration = new BoardConfiguration();
     	configuration.setGameId(gameId);
@@ -330,6 +412,12 @@ public class HareHoundService {
     	}
 		return configuration;
     }
+    /**
+     * Queries for a board configuration table by the board configuration id. 
+     * 
+     * @param configurationId the id of the configuration
+     * @throws HareHoundServiceException if the configuration cannot be found in the database
+     */
     private BoardConfiguration getBoardConfiguration(int configurationId) throws HareHoundServiceException{
     	String sqlGetBoardConfiguration = "SELECT * FROM configuration WHERE configuration_id = :configurationId";
     	try (Connection conn = database.open()){
@@ -348,10 +436,16 @@ public class HareHoundService {
        				.addColumnMapping("game_id", "gameId")
        				.executeAndFetchFirst(BoardConfiguration.class);
     	} catch(Sql2oException ex){
-    		logger.error(String.format("HareHoundService.getBoardConfiguration: Failed to query database for game: %s", configurationId), ex);
-    		throw new HareHoundServiceException(String.format("HareHoundService.getBoardConfiguration: Failed to query database of id %s", configurationId), ex);
+    		logger.error(String.format("HareHoundService.getBoardConfiguration: Failed to query database for configuration: %s", configurationId), ex);
+    		throw new HareHoundServiceException(String.format("HareHoundService.getBoardConfiguration: Failed to query database for configuration id %s", configurationId), ex);
     	}
     }
+    /**
+     * Queries the game table for a game based on a game id. 
+     * 
+     * @param gameId the id of the game
+     * @throws HareHoundServiceException if the game cannot be found in the database
+     */
     private Game getGame(int gameId) throws HareHoundServiceException{
     	String sqlIsValidGame = "SELECT * FROM game WHERE game_id = :gameId";
     	try (Connection conn = database.open()){
@@ -363,9 +457,16 @@ public class HareHoundService {
     			.executeAndFetchFirst(Game.class);
     	} catch(Sql2oException ex){
     		logger.error(String.format("HareHoundService.isValidGameId: Failed to query database for game: %s", gameId), ex);
-    		throw new HareHoundServiceException(String.format("HareHoundService.isValidGameID: Failed to query database of id %s", gameId), ex);
+    		throw new HareHoundServiceException(String.format("HareHoundService.getGame: Failed to query database for game id %s", gameId), ex);
     	}
     }
+    /**
+     * Queries the player table by the player and game ids. 
+     * 
+     * @param playerId the id of the player
+     * @param gameId the id of the game
+     * @throws HareHoundServiceException if the player cannot be found in the database
+     */
     private Player getPlayer(int playerId, int gameId) throws HareHoundServiceException{
     	String sqlIsValidPlayer = "SELECT player_id, game_id, piece_type FROM player WHERE player_id = :playerId AND game_id = :gameId";
     	try (Connection conn = database.open()){
@@ -378,9 +479,15 @@ public class HareHoundService {
     			.executeAndFetchFirst(Player.class);
     	} catch(Sql2oException ex){
     		logger.error(String.format("HareHoundService.isValidPlayerId: Failed to query database for player: %s", playerId), ex);
-    		throw new HareHoundServiceException(String.format("HareHoundService.isValidPlayerID: Failed to query database of id %s", playerId), ex);
+    		throw new HareHoundServiceException(String.format("HareHoundService.getPlayer: Failed to query database of id %s", playerId), ex);
     	}
     }
+    /**
+     * Retrieves a list of players in a game by the game id.
+     * 
+     * @param gameId the id of the game
+     * @throws HareHoundServiceException if the player cannot be found in the database
+     */
     private List<Player> getPlayersInGame(int gameId) throws HareHoundServiceException{
     	String sqlIsValidPlayer = "SELECT player_id, game_id, piece_type FROM player WHERE game_id = :gameId";
     	try (Connection conn = database.open()){
@@ -392,9 +499,15 @@ public class HareHoundService {
     			.executeAndFetch(Player.class);
     	} catch(Sql2oException ex){
     		logger.error(String.format("HareHoundService.isValidPlayerId: Failed to query database for player: %s", gameId), ex);
-    		throw new HareHoundServiceException(String.format("HareHoundService.isValidPlayerID: Failed to query database of id %s", gameId), ex);
+    		throw new HareHoundServiceException(String.format("HareHoundService.getPlayersInGame: Failed to query database for id %s", gameId), ex);
     	}
     }
+    /**
+     * Maps the instance data of a game object to the game table.
+     * 
+     * @param game the game to be mapped
+     * @throws HareHoundServiceException if the game cannot be inserted into the database.
+     */
     private int mapToDatabase(Game game) throws HareHoundServiceException{
     	String insertGameSql = "INSERT INTO game (status) VALUES (:gameStatus)";
     	try (Connection conn = database.open()){
@@ -408,6 +521,12 @@ public class HareHoundService {
     		throw new HareHoundServiceException(String.format("HareHoundService.createNewGame: failed to insert new game"), ex);
     	}
     }
+    /**
+     * Maps the instance data of a player object to the player table.
+     * 
+     * @param player the player to be mapped
+     * @throws HareHoundServiceException if the player cannot be inserted into the database.
+     */
     private int mapToDatabase(Player player) throws HareHoundServiceException{
     	String insertHarePlayerSql = "INSERT INTO player (piece_type, x_location_1, y_location_1, game_id) " + 
     			"VALUES (:pieceType, :xLocation1, :yLocation1, :gameId)";
@@ -440,9 +559,15 @@ public class HareHoundService {
     		return (int) playerId;
     	} catch(Sql2oException ex){
     		logger.error("HareHoundService.mapGameToDatabase: Failed to create new entry");
-    		throw new HareHoundServiceException(String.format("HareHoundService.createNewGame: failed to insert new game"), ex);
+    		throw new HareHoundServiceException(String.format("HareHoundService.createNewGame: failed to insert new player"), ex);
     	}
     }
+    /**
+     * Maps the instance data of a board configuration object to the configuration table.
+     * 
+     * @param configuration the board configuration to be mapped
+     * @throws HareHoundServiceException if the configuration cannot be inserted into the database.
+     */
     private int mapToDatabase(BoardConfiguration configuration) throws HareHoundServiceException {
    		String insertBoardConfigurationSql = "INSERT INTO configuration (hare_x_location, hare_y_location, hound_1_x_location, " +
    				"hound_1_y_location, hound_2_x_location, hound_2_y_location, hound_3_x_location, hound_3_y_location, frequency, game_id) " +

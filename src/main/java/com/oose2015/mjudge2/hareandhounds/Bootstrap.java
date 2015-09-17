@@ -1,6 +1,8 @@
 //-------------------------------------------------------------------------------------------------------------//
 // Code based on a tutorial by Shekhar Gulati of SparkJava at
 // https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/
+// Code based on the Bootstrap.java file in the Todo app created for OOSE 2015.
+// https://github.com/jhu-oose/todo/blob/master/src/main/java/com/todoapp/Bootstrap.java
 //-------------------------------------------------------------------------------------------------------------//
 
 
@@ -42,10 +44,8 @@ public class Bootstrap {
 
         //Create the model instance and then configure and start the web service
        try {
-    	   System.out.println("here");
             HareHoundService model = new HareHoundService(dataSource);
             new HareHoundController(model);
-        	System.out.println("Hello World");
         } catch (Exception ex) {
             logger.error("Failed to create a Hare Hound Service instance. Aborting");
         }
